@@ -49,7 +49,7 @@ def copy_objects(source_bucket, source_prefix, bucket, prefix):
         for key in {x['Key'] for page in page_iterator for x in page['Contents']}:
             source_key = key
             dest_key = os.path.join(prefix, os.path.relpath(key, source_prefix))
-            print 'copy {} to {}'.format(key, dest_key)
+            print("copy {} to {}".format(key, dest_key))
             client.copy_object(CopySource={'Bucket': source_bucket, 'Key': key}, Bucket=bucket, Key=dest_key)
     except KeyError as e:
         logger.error('Error: %s', e)

@@ -1,16 +1,14 @@
-const util = require('util');
-const AWS = require('aws-sdk');
-const rekognition = new AWS.Rekognition();
+import { RekognitionClient, DetectFacesCommand } from "@aws-sdk/client-rekognition";
 
-exports.handler = (event, context, callback) =>
-{
-    console.log("Reading input from event:\n", util.inspect(event, {depth: 5}));
+export const handler = async (event, context, callback) => {
+    console.log("Reading input from event:\n", JSON.stringify(event));
 
     const srcBucket = event.s3Bucket;
-    // Object key may have spaces or unicode non-ASCII characters.
     const srcKey = decodeURIComponent(event.s3Key.replace(/\+/g, " "));
 
-    var params = {
+    const rekognitionClient = new RekognitionClient({});
+
+    const params = {
         Image: {
             S3Object: {
                 Bucket: srcBucket,
@@ -20,8 +18,12 @@ exports.handler = (event, context, callback) =>
         Attributes: ['ALL']
     };
 
-    rekognition.detectFaces(params).promise().then((data)=> {
-        console.log("Detection result from rekognition:\n", util.inspect(data, {depth: 5}));
+    try {
+        const command = new DetectFacesCommand(params);
+        const data = await rekognitionClient.send(command);
+
+        console.log("Detection result from rekognition:\n", JSON.stringify(data));
+
         if (data.FaceDetails.length != 1) {
             callback(new PhotoDoesNotMeetRequirementError("Detected " + data.FaceDetails.length + " faces in the photo."));
         }
@@ -29,23 +31,21 @@ exports.handler = (event, context, callback) =>
             callback(new PhotoDoesNotMeetRequirementError("Face is wearing sunglasses"));
         }
         var detectedFaceDetails = data.FaceDetails[0];
-
-        // remove some fields not used in further processing to de-clutter the output.
         delete detectedFaceDetails['Landmarks'];
 
         callback(null, detectedFaceDetails);
-    }).catch( err=> {
-        console.log(err);
-        if (err.code === "ImageTooLargeException"){
-            callback(new PhotoDoesNotMeetRequirementError(err.message));
+
+    } catch (error) {
+        console.log(error);
+        if (error.code === "ImageTooLargeException"){
+            callback(new PhotoDoesNotMeetRequirementError(error.message));
         }
-        if (err.code === "InvalidImageFormatException"){
+        if (error.code === "InvalidImageFormatException"){
             callback(new PhotoDoesNotMeetRequirementError("Unsupported image file format. Only JPEG or PNG is supported"));
         }
-        callback(err);
-    });
+        callback(error);
+    }
 };
-
 
 function PhotoDoesNotMeetRequirementError(message) {
     this.name = "PhotoDoesNotMeetRequirementError";

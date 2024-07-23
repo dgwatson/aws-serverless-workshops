@@ -1,13 +1,12 @@
-const util = require('util');
-const AWS = require('aws-sdk');
-const rekognition = new AWS.Rekognition();
+import { RekognitionClient, SearchFacesByImageCommand } from "@aws-sdk/client-rekognition";
 
-exports.handler = (event, context, callback) => {
-    console.log("Reading input from event:\n", util.inspect(event, {depth: 5}));
+export const handler = async (event, context, callback) => {
+    console.log("Reading input from event:\n", JSON.stringify(event));
 
     const srcBucket = event.s3Bucket;
-    // Object key may have spaces or unicode non-ASCII characters.
     const srcKey = decodeURIComponent(event.s3Key.replace(/\+/g, " "));
+
+    const rekognitionClient = new RekognitionClient({});
 
     var params = {
         CollectionId: process.env.REKOGNITION_COLLECTION_ID,
@@ -20,15 +19,23 @@ exports.handler = (event, context, callback) => {
         FaceMatchThreshold: 70.0,
         MaxFaces: 3
     };
-    rekognition.searchFacesByImage(params).promise().then(data => {
+
+    try {
+        const command = new SearchFacesByImageCommand(params);
+        const response = await rekognitionClient.send(command);
+
+        console.log("Search results:", response);
+
         if (data.FaceMatches.length > 0) {
             callback(new FaceAlreadyExistsError());
         } else {
             callback(null, null);
         }
-    }).catch(err => {
-        callback(err);
-    });
+
+    } catch (error) {
+        console.log(error);
+        callback(error);
+    }
 };
 
 function FaceAlreadyExistsError() {
