@@ -26,7 +26,7 @@ export const handler = async (event, context, callback) => {
 
         console.log("Search results:", response);
 
-        if (data.FaceMatches.length > 0) {
+        if (response.FaceMatches.length > 0) {
             callback(new FaceAlreadyExistsError());
         } else {
             callback(null, null);
